@@ -1,0 +1,437 @@
+// ============================================================
+// anifood-orders-firebase.jsx
+// Order System ukiwa umiunganishwa na Firebase halisi
+// ============================================================
+
+import { useState, useEffect } from "react";
+import { initializeApp, getApps } from "firebase/app";
+import {
+  getFirestore,
+  collection,
+  addDoc,
+  onSnapshot,
+  updateDoc,
+  doc,
+  query,
+  orderBy,
+  serverTimestamp,
+} from "firebase/firestore";
+import {
+  getStorage,
+  ref,
+  uploadBytesResumable,
+  getDownloadURL,
+} from "firebase/storage";
+
+// ── Firebase Config ────────────────────────────────────────
+// 🔴 BADILISHA NA CONFIG YAKO HALISI
+const firebaseConfig = {
+  apiKey: "WEKA_HAPA_API_KEY_YAKO",
+  authDomain: "anifood-tz.firebaseapp.com",
+  projectId: "anifood-tz",
+  storageBucket: "anifood-tz.appspot.com",
+  messagingSenderId: "WEKA_HAPA",
+  appId: "WEKA_HAPA",
+};
+
+const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const storage = getStorage(app);
+
+// ── Menu Data ──────────────────────────────────────────────
+const menuData = [
+  { id: 1, name: "Chipsi Mayai", price: 3500, time: 12, emoji: "🍳", category: "Chipsi" },
+  { id: 2, name: "Chipsi Kawaida", price: 2000, time: 10, emoji: "🍟", category: "Chipsi" },
+  { id: 3, name: "Chipsi Kuku", price: 5000, time: 15, emoji: "🍗", category: "Chipsi" },
+  { id: 4, name: "Mishikaki ya Ng'ombe", price: 1000, time: 8, emoji: "🥩", category: "Mishikaki" },
+  { id: 5, name: "Mishikaki ya Kuku", price: 1000, time: 8, emoji: "🍗", category: "Mishikaki" },
+  { id: 6, name: "Samaki Kawaida", price: 4000, time: 15, emoji: "🐟", category: "Samaki" },
+  { id: 7, name: "Samaki na Chipsi", price: 6000, time: 18, emoji: "🐠", category: "Samaki" },
+  { id: 8, name: "Soda Baridi", price: 1000, time: 0, emoji: "🥤", category: "Vinywaji" },
+];
+
+const paymentMethods = [
+  { id: "mpesa", name: "M-Pesa", icon: "📱", color: "#00A651" },
+  { id: "tigo", name: "Tigo Pesa", icon: "📲", color: "#0066CC" },
+  { id: "airtel", name: "Airtel Money", icon: "💳", color: "#FF0000" },
+  { id: "cash", name: "Cash", icon: "💵", color: "#2E7D32" },
+];
+
+const fmt = (n) => `TZS ${Number(n).toLocaleString()}`;
+
+// ── Order Functions ────────────────────────────────────────
+
+// Hifadhi order mpya kwenye Firestore
+export async function saveOrder(orderData) {
+  try {
+    const docRef = await addDoc(collection(db, "orders"), {
+      ...orderData,
+      status: "pending",
+      createdAt: serverTimestamp(),
+    });
+    return { success: true, id: docRef.id };
+  } catch (error) {
+    console.error("Kosa la kuhifadhi order:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+// Badilisha status ya order (kwa Kitchen)
+export async function updateOrderStatus(orderId, newStatus) {
+  try {
+    await updateDoc(doc(db, "orders", orderId), {
+      status: newStatus,
+      updatedAt: serverTimestamp(),
+    });
+    return { success: true };
+  } catch (error) {
+    console.error("Kosa la kubadilisha status:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+// Hook: Sikiliza orders zote kwa wakati halisi
+export function useOrders() {
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const q = query(collection(db, "orders"), orderBy("createdAt", "desc"));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+        createdAt: doc.data().createdAt?.toDate?.() || new Date(),
+      }));
+      setOrders(data);
+      setLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  return { orders, loading };
+}
+
+// ── Upload Picha/Video kwenye Firebase Storage ─────────────
+export async function uploadMedia(file, folder = "gallery") {
+  return new Promise((resolve, reject) => {
+    const fileRef = ref(storage, `${folder}/${Date.now()}_${file.name}`);
+    const uploadTask = uploadBytesResumable(fileRef, file);
+
+    uploadTask.on(
+      "state_changed",
+      (snapshot) => {
+        const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+        console.log(`Inapakia: ${Math.round(progress)}%`);
+      },
+      (error) => reject(error),
+      async () => {
+        const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+        resolve(downloadURL);
+      }
+    );
+  });
+}
+
+// ── Hifadhi Post ya Community ──────────────────────────────
+export async function savePost(postData, mediaFile = null) {
+  try {
+    let mediaUrl = null;
+    if (mediaFile) {
+      mediaUrl = await uploadMedia(mediaFile, "community");
+    }
+    const docRef = await addDoc(collection(db, "posts"), {
+      ...postData,
+      mediaUrl,
+      likes: 0,
+      comments: [],
+      createdAt: serverTimestamp(),
+    });
+    return { success: true, id: docRef.id };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+// ── Hifadhi Ujumbe wa Live Chat ────────────────────────────
+export async function sendChatMessage(messageData) {
+  try {
+    await addDoc(collection(db, "messages"), {
+      ...messageData,
+      createdAt: serverTimestamp(),
+    });
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+// Hook: Sikiliza messages za chat kwa wakati halisi
+export function useChatMessages() {
+  const [messages, setMessages] = useState([]);
+
+  useEffect(() => {
+    const q = query(collection(db, "messages"), orderBy("createdAt", "asc"));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+        time: doc.data().createdAt?.toDate?.()?.toLocaleTimeString("sw-TZ", { hour: "2-digit", minute: "2-digit" }) || "...",
+      }));
+      setMessages(data);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  return messages;
+}
+
+// ── Main Order Component ───────────────────────────────────
+export default function ANIFOODOrdersFirebase() {
+  const [cart, setCart] = useState([]);
+  const [step, setStep] = useState("menu"); // menu | checkout | confirm
+  const [activeCategory, setActiveCategory] = useState("Zote");
+  const [customerName, setCustomerName] = useState("");
+  const [customerPhone, setCustomerPhone] = useState("");
+  const [delivery, setDelivery] = useState("pickup");
+  const [address, setAddress] = useState("");
+  const [payment, setPayment] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [orderResult, setOrderResult] = useState(null);
+  const [error, setError] = useState("");
+
+  const categories = ["Zote", ...new Set(menuData.map((m) => m.category))];
+  const filtered = activeCategory === "Zote" ? menuData : menuData.filter((m) => m.category === activeCategory);
+  const totalPrice = cart.reduce((s, i) => s + i.price * i.qty, 0);
+  const totalItems = cart.reduce((s, i) => s + i.qty, 0);
+  const maxTime = cart.reduce((max, i) => Math.max(max, i.time), 0);
+
+  const addToCart = (item) => setCart((prev) => {
+    const ex = prev.find((c) => c.id === item.id);
+    return ex ? prev.map((c) => c.id === item.id ? { ...c, qty: c.qty + 1 } : c) : [...prev, { ...item, qty: 1 }];
+  });
+
+  const removeFromCart = (id) => setCart((prev) => {
+    const ex = prev.find((c) => c.id === id);
+    return ex?.qty === 1 ? prev.filter((c) => c.id !== id) : prev.map((c) => c.id === id ? { ...c, qty: c.qty - 1 } : c);
+  });
+
+  const getQty = (id) => cart.find((c) => c.id === id)?.qty || 0;
+
+  const placeOrder = async () => {
+    setSaving(true);
+    setError("");
+
+    const orderData = {
+      customerName,
+      customerPhone,
+      items: cart.map((i) => ({ name: i.name, qty: i.qty, price: i.price, emoji: i.emoji })),
+      total: totalPrice + (delivery === "delivery" ? 2000 : 0),
+      payment,
+      delivery,
+      address: delivery === "delivery" ? address : "Pickup",
+      estimatedTime: maxTime + (delivery === "delivery" ? 20 : 5),
+      orderNumber: "ANI" + Math.floor(Math.random() * 9000 + 1000),
+    };
+
+    const result = await saveOrder(orderData);
+    setSaving(false);
+
+    if (result.success) {
+      setOrderResult({ ...orderData, firestoreId: result.id });
+      setStep("confirm");
+      setCart([]);
+    } else {
+      setError("Kosa: " + result.error + ". Jaribu tena.");
+    }
+  };
+
+  if (step === "confirm" && orderResult) {
+    return (
+      <div style={st.page}>
+        <div style={st.confirmBox}>
+          <div style={{ fontSize: 70 }}>✅</div>
+          <h2 style={st.confirmTitle}>Order Imehifadhiwa Firebase!</h2>
+          <div style={st.orderNum}>#{orderResult.orderNumber}</div>
+          <div style={st.firebaseBadge}>🔥 Imehifadhiwa Firestore</div>
+          <p style={{ color: "#aaa", fontSize: 13 }}>Asante <strong style={{ color: "#fff" }}>{orderResult.customerName}</strong>!</p>
+          <div style={st.infoCard}>
+            <div style={st.infoRow}><span>⏱️ Muda</span><span style={{ color: "#FF6B00" }}>~{orderResult.estimatedTime} dakika</span></div>
+            <div style={st.infoRow}><span>💰 Jumla</span><span style={{ color: "#FF6B00" }}>{fmt(orderResult.total)}</span></div>
+            <div style={st.infoRow}><span>💳 Malipo</span><span>{orderResult.payment}</span></div>
+            <div style={st.infoRow}><span>📦 Aina</span><span>{orderResult.delivery === "delivery" ? "🛵 Delivery" : "🏃 Pickup"}</span></div>
+          </div>
+          <div style={st.successNote}>
+            ✅ Kitchen imeona order yako sasa hivi!{"\n"}
+            📱 Utapata ujumbe wa WhatsApp hivi karibuni.
+          </div>
+          <button style={st.newOrderBtn} onClick={() => { setStep("menu"); setCustomerName(""); setCustomerPhone(""); setPayment(""); setAddress(""); setOrderResult(null); }}>
+            🍽️ Agiza Tena
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (step === "checkout") {
+    return (
+      <div style={st.page}>
+        <div style={st.checkoutBox}>
+          <button style={st.backBtn} onClick={() => setStep("menu")}>← Rudi</button>
+          <h2 style={st.sectionTitle}>📋 Kamilisha Order</h2>
+          {error && <div style={st.errorBox}>⚠️ {error}</div>}
+          <div style={st.formGroup}>
+            <label style={st.label}>Jina Lako *</label>
+            <input style={st.input} placeholder="e.g. Amina Hassan" value={customerName} onChange={(e) => setCustomerName(e.target.value)} />
+          </div>
+          <div style={st.formGroup}>
+            <label style={st.label}>Namba ya Simu *</label>
+            <input style={st.input} placeholder="e.g. 0712345678" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} type="tel" />
+          </div>
+          <div style={st.formGroup}>
+            <label style={st.label}>Aina ya Huduma *</label>
+            <div style={st.toggleRow}>
+              {["pickup", "delivery"].map((t) => (
+                <button key={t} style={{ ...st.toggleBtn, ...(delivery === t ? st.toggleActive : {}) }} onClick={() => setDelivery(t)}>
+                  {t === "pickup" ? "🏃 Pickup" : "🛵 Delivery"}
+                </button>
+              ))}
+            </div>
+          </div>
+          {delivery === "delivery" && (
+            <div style={st.formGroup}>
+              <label style={st.label}>Anwani *</label>
+              <input style={st.input} placeholder="Mtaa / Nyumba yako" value={address} onChange={(e) => setAddress(e.target.value)} />
+            </div>
+          )}
+          <div style={st.formGroup}>
+            <label style={st.label}>Njia ya Malipo *</label>
+            {paymentMethods.map((pm) => (
+              <button key={pm.id} style={{ ...st.payBtn, ...(payment === pm.id ? { borderColor: pm.color, background: pm.color + "22" } : {}) }} onClick={() => setPayment(pm.id)}>
+                {pm.icon} {pm.name} {payment === pm.id && "✓"}
+              </button>
+            ))}
+          </div>
+          <div style={st.totalCard}>
+            <div style={st.totalRow}><span>Chakula</span><span>{fmt(totalPrice)}</span></div>
+            {delivery === "delivery" && <div style={st.totalRow}><span>Delivery</span><span>{fmt(2000)}</span></div>}
+            <div style={{ ...st.totalRow, ...st.grandTotal }}>
+              <strong>JUMLA</strong>
+              <strong style={{ color: "#FF6B00" }}>{fmt(totalPrice + (delivery === "delivery" ? 2000 : 0))}</strong>
+            </div>
+          </div>
+          <button
+            style={{ ...st.placeBtn, ...(!customerName || !customerPhone || !payment || saving ? st.btnDisabled : {}) }}
+            onClick={placeOrder}
+            disabled={!customerName || !customerPhone || !payment || saving}
+          >
+            {saving ? "⏳ Inahifadhi Firebase..." : "🔥 Wasilisha Order"}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={st.page}>
+      <div style={st.header}>
+        <div style={st.logo}>
+          <span>🍽️</span>
+          <div>
+            <div style={st.logoName}>ANIFOOD</div>
+            <div style={st.logoSub}>🔥 Firebase Live</div>
+          </div>
+        </div>
+        {totalItems > 0 && (
+          <button style={st.cartBtn} onClick={() => setStep("checkout")}>
+            🛒 {totalItems} — {fmt(totalPrice)}
+          </button>
+        )}
+      </div>
+
+      <div style={st.tabs}>
+        {categories.map((cat) => (
+          <button key={cat} style={{ ...st.tab, ...(activeCategory === cat ? st.tabActive : {}) }} onClick={() => setActiveCategory(cat)}>
+            {cat}
+          </button>
+        ))}
+      </div>
+
+      <div style={st.grid}>
+        {filtered.map((item) => {
+          const qty = getQty(item.id);
+          return (
+            <div key={item.id} style={st.card}>
+              <div style={st.cardEmoji}>{item.emoji}</div>
+              <div style={st.cardName}>{item.name}</div>
+              <div style={st.cardPrice}>{fmt(item.price)}</div>
+              {item.time > 0 && <div style={st.cardTime}>⏱️ {item.time} dak</div>}
+              {qty === 0 ? (
+                <button style={st.addBtn} onClick={() => addToCart(item)}>+ Ongeza</button>
+              ) : (
+                <div style={st.qtyRow}>
+                  <button style={st.qtyBtn} onClick={() => removeFromCart(item.id)}>−</button>
+                  <span style={st.qtyNum}>{qty}</span>
+                  <button style={st.qtyBtn} onClick={() => addToCart(item)}>+</button>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {totalItems > 0 && (
+        <button style={st.floatBtn} onClick={() => setStep("checkout")}>
+          🛒 {totalItems} Vitu — {fmt(totalPrice)} →
+        </button>
+      )}
+    </div>
+  );
+}
+
+const st = {
+  page: { minHeight: "100vh", background: "#0A0A0A", color: "#fff", fontFamily: "'Segoe UI', sans-serif", paddingBottom: 100 },
+  header: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 20px", background: "#111", borderBottom: "2px solid #FF6B00", position: "sticky", top: 0, zIndex: 50 },
+  logo: { display: "flex", alignItems: "center", gap: 10 },
+  logoName: { fontSize: 20, fontWeight: 900, color: "#FF6B00", letterSpacing: 2 },
+  logoSub: { fontSize: 10, color: "#888" },
+  cartBtn: { background: "#FF6B00", border: "none", color: "#fff", borderRadius: 20, padding: "8px 14px", cursor: "pointer", fontWeight: 800, fontSize: 13 },
+  tabs: { display: "flex", overflowX: "auto", gap: 6, padding: "12px 16px", background: "#111", scrollbarWidth: "none" },
+  tab: { flexShrink: 0, padding: "7px 14px", borderRadius: 20, border: "1px solid #333", background: "#1a1a1a", color: "#888", cursor: "pointer", fontSize: 12, fontWeight: 600 },
+  tabActive: { background: "#FF6B00", color: "#fff", border: "1px solid #FF6B00" },
+  grid: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, padding: "14px 16px" },
+  card: { background: "#1a1a1a", borderRadius: 14, padding: 14, border: "1px solid #222", textAlign: "center" },
+  cardEmoji: { fontSize: 40, marginBottom: 8 },
+  cardName: { fontWeight: 800, fontSize: 13, marginBottom: 4 },
+  cardPrice: { color: "#FF6B00", fontWeight: 900, marginBottom: 4 },
+  cardTime: { fontSize: 11, color: "#888", marginBottom: 8 },
+  addBtn: { background: "#FF6B00", border: "none", color: "#fff", borderRadius: 8, padding: "7px 14px", cursor: "pointer", fontWeight: 700, fontSize: 12, width: "100%" },
+  qtyRow: { display: "flex", alignItems: "center", justifyContent: "center", gap: 10 },
+  qtyBtn: { background: "#FF6B00", border: "none", color: "#fff", borderRadius: 6, width: 28, height: 28, cursor: "pointer", fontSize: 16, fontWeight: 900 },
+  qtyNum: { fontWeight: 900, fontSize: 16, minWidth: 20, textAlign: "center" },
+  floatBtn: { position: "fixed", bottom: 20, left: 16, right: 16, background: "#FF6B00", border: "none", color: "#fff", borderRadius: 14, padding: "16px", fontSize: 15, fontWeight: 900, cursor: "pointer", zIndex: 200, boxShadow: "0 4px 20px rgba(255,107,0,0.5)" },
+  checkoutBox: { padding: 20, maxWidth: 500, margin: "0 auto" },
+  backBtn: { background: "none", border: "1px solid #333", color: "#aaa", borderRadius: 8, padding: "6px 14px", cursor: "pointer", marginBottom: 16, fontSize: 13 },
+  sectionTitle: { fontSize: 18, fontWeight: 900, color: "#FF6B00", marginBottom: 20 },
+  errorBox: { background: "rgba(255,50,50,0.1)", border: "1px solid #FF4444", borderRadius: 10, padding: "10px 14px", marginBottom: 14, fontSize: 13, color: "#FF6666" },
+  formGroup: { marginBottom: 16 },
+  label: { display: "block", fontSize: 12, color: "#aaa", marginBottom: 6, fontWeight: 600 },
+  input: { width: "100%", background: "#1a1a1a", border: "1px solid #333", color: "#fff", borderRadius: 10, padding: "12px", fontSize: 14, boxSizing: "border-box", outline: "none" },
+  toggleRow: { display: "flex", gap: 10 },
+  toggleBtn: { flex: 1, background: "#1a1a1a", border: "1px solid #333", color: "#aaa", borderRadius: 10, padding: "12px", cursor: "pointer", fontSize: 13, fontWeight: 600 },
+  toggleActive: { background: "rgba(255,107,0,0.15)", border: "1px solid #FF6B00", color: "#FF6B00" },
+  payBtn: { display: "flex", alignItems: "center", gap: 10, width: "100%", background: "#1a1a1a", border: "1px solid #333", color: "#fff", borderRadius: 10, padding: "12px", cursor: "pointer", fontSize: 14, marginBottom: 8 },
+  totalCard: { background: "#111", borderRadius: 12, padding: 14, margin: "16px 0" },
+  totalRow: { display: "flex", justifyContent: "space-between", padding: "6px 0", fontSize: 14, color: "#aaa" },
+  grandTotal: { borderTop: "1px solid #333", marginTop: 6, paddingTop: 10, color: "#fff", fontSize: 15 },
+  placeBtn: { width: "100%", background: "#FF6B00", border: "none", color: "#fff", borderRadius: 12, padding: "16px", fontSize: 16, fontWeight: 900, cursor: "pointer" },
+  btnDisabled: { background: "#444", cursor: "not-allowed" },
+  confirmBox: { padding: 24, maxWidth: 460, margin: "0 auto", textAlign: "center" },
+  confirmTitle: { fontSize: 22, fontWeight: 900, color: "#FF6B00", margin: "8px 0" },
+  orderNum: { background: "#FF6B00", color: "#fff", display: "inline-block", borderRadius: 20, padding: "6px 20px", fontWeight: 900, fontSize: 18, letterSpacing: 2, marginBottom: 8 },
+  firebaseBadge: { background: "rgba(255,107,0,0.15)", border: "1px solid #FF6B00", borderRadius: 20, padding: "4px 14px", fontSize: 12, color: "#FF6B00", display: "inline-block", marginBottom: 12 },
+  infoCard: { background: "#1a1a1a", borderRadius: 12, padding: 14, margin: "14px 0", textAlign: "left" },
+  infoRow: { display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid #222", fontSize: 13, color: "#aaa" },
+  successNote: { background: "rgba(102,187,106,0.1)", border: "1px solid #66BB6A", borderRadius: 10, padding: "12px", fontSize: 12, color: "#66BB6A", margin: "12px 0", whiteSpace: "pre-line", textAlign: "left" },
+  newOrderBtn: { width: "100%", background: "#FF6B00", border: "none", color: "#fff", borderRadius: 12, padding: "14px", fontSize: 15, fontWeight: 900, cursor: "pointer", marginTop: 8 },
+};
