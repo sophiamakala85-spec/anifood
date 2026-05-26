@@ -26,12 +26,12 @@ import {
 // ── Firebase Config ────────────────────────────────────────
 // 🔴 BADILISHA NA CONFIG YAKO HALISI
 const firebaseConfig = {
-  apiKey: "WEKA_HAPA_API_KEY_YAKO",
+  apiKey: "AIzaSyBQS9sxTh7HNllnLKq8zKGeTiKY3nybAi8",
   authDomain: "anifood-tz.firebaseapp.com",
   projectId: "anifood-tz",
   storageBucket: "anifood-tz.appspot.com",
-  messagingSenderId: "WEKA_HAPA",
-  appId: "WEKA_HAPA",
+  messagingSenderId: "766440180351",
+  appId: "1:766440180351:web:4cf039cad4ff9658c84d4a",
 };
 
 const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
