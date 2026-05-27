@@ -7,16 +7,258 @@
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 </head>
-<body>
+<body style="margin:0;padding:0;background:#0A0A0A">
   <div id="root"></div>
-  <script type="text/babel" src="anifood-orders-firebase.jsx.txt"></script>
   <script type="text/babel">
-    ReactDOM.createRoot(document.getElementById('root')).render(
-      React.createElement(ANIFOODOrdersFirebase)
+
+const { useState, useEffect } = React;
+
+// Firebase Config - BADILISHA NA YAKO
+const firebaseConfig = {
+  apiKey: "AIzaSyBQS9sxTh7HNllnLKq8zKGeTiKY3nybAi8",
+  authDomain: "anifood-tz.firebaseapp.com",
+  projectId: "anifood-tz",
+  storageBucket: "anifood-tz.appspot.com",
+  messagingSenderId: "766440180351",
+  appId: "1:766440180351:web:4cf039cad4ff9658c84d4a"
+};
+
+if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+const menuData = [
+  { id: 1, name: "Chipsi Mayai", price: 3500, time: 12, emoji: "🍳", category: "Chipsi" },
+  { id: 2, name: "Chipsi Kawaida", price: 2000, time: 10, emoji: "🍟", category: "Chipsi" },
+  { id: 3, name: "Chipsi Kuku", price: 5000, time: 15, emoji: "🍗", category: "Chipsi" },
+  { id: 4, name: "Mishikaki ya Ng'ombe", price: 1000, time: 8, emoji: "🥩", category: "Mishikaki" },
+  { id: 5, name: "Mishikaki ya Kuku", price: 1000, time: 8, emoji: "🍗", category: "Mishikaki" },
+  { id: 6, name: "Samaki Kawaida", price: 4000, time: 15, emoji: "🐟", category: "Samaki" },
+  { id: 7, name: "Samaki na Chipsi", price: 6000, time: 18, emoji: "🐠", category: "Samaki" },
+  { id: 8, name: "Soda Baridi", price: 1000, time: 0, emoji: "🥤", category: "Vinywaji" },
+];
+
+const paymentMethods = [
+  { id: "mpesa", name: "M-Pesa", icon: "📱", color: "#00A651" },
+  { id: "tigo", name: "Tigo Pesa", icon: "📲", color: "#0066CC" },
+  { id: "airtel", name: "Airtel Money", icon: "💳", color: "#FF0000" },
+  { id: "cash", name: "Cash", icon: "💵", color: "#2E7D32" },
+];
+
+const fmt = (n) => `TZS ${Number(n).toLocaleString()}`;
+
+function App() {
+  const [cart, setCart] = useState([]);
+  const [step, setStep] = useState("menu");
+  const [activeCategory, setActiveCategory] = useState("Zote");
+  const [customerName, setCustomerName] = useState("");
+  const [customerPhone, setCustomerPhone] = useState("");
+  const [delivery, setDelivery] = useState("pickup");
+  const [address, setAddress] = useState("");
+  const [payment, setPayment] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [orderResult, setOrderResult] = useState(null);
+  const [error, setError] = useState("");
+
+  const categories = ["Zote", ...new Set(menuData.map(m => m.category))];
+  const filtered = activeCategory === "Zote" ? menuData : menuData.filter(m => m.category === activeCategory);
+  const totalPrice = cart.reduce((s, i) => s + i.price * i.qty, 0);
+  const totalItems = cart.reduce((s, i) => s + i.qty, 0);
+  const maxTime = cart.reduce((max, i) => Math.max(max, i.time), 0);
+
+  const addToCart = (item) => setCart(prev => {
+    const ex = prev.find(c => c.id === item.id);
+    return ex ? prev.map(c => c.id === item.id ? {...c, qty: c.qty+1} : c) : [...prev, {...item, qty:1}];
+  });
+
+  const removeFromCart = (id) => setCart(prev => {
+    const ex = prev.find(c => c.id === id);
+    return ex?.qty === 1 ? prev.filter(c => c.id !== id) : prev.map(c => c.id === id ? {...c, qty: c.qty-1} : c);
+  });
+
+  const getQty = (id) => cart.find(c => c.id === id)?.qty || 0;
+
+  const placeOrder = async () => {
+    setSaving(true);
+    setError("");
+    try {
+      const orderData = {
+        customerName, customerPhone,
+        items: cart.map(i => ({name:i.name, qty:i.qty, price:i.price, emoji:i.emoji})),
+        total: totalPrice + (delivery === "delivery" ? 2000 : 0),
+        payment, delivery,
+        address: delivery === "delivery" ? address : "Pickup",
+        estimatedTime: maxTime + (delivery === "delivery" ? 20 : 5),
+        orderNumber: "ANI" + Math.floor(Math.random() * 9000 + 1000),
+        status: "pending",
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      };
+      const ref = await db.collection("orders").add(orderData);
+      setOrderResult({...orderData, firestoreId: ref.id});
+      setStep("confirm");
+      setCart([]);
+    } catch(e) {
+      setError("Kosa: " + e.message);
+    }
+    setSaving(false);
+  };
+
+  const st = {
+    page: {minHeight:"100vh",background:"#0A0A0A",color:"#fff",fontFamily:"'Segoe UI',sans-serif",paddingBottom:100},
+    header: {display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 20px",background:"#111",borderBottom:"2px solid #FF6B00",position:"sticky",top:0,zIndex:50},
+    logoName: {fontSize:20,fontWeight:900,color:"#FF6B00",letterSpacing:2},
+    logoSub: {fontSize:10,color:"#888"},
+    cartBtn: {background:"#FF6B00",border:"none",color:"#fff",borderRadius:20,padding:"8px 14px",cursor:"pointer",fontWeight:800,fontSize:13},
+    tabs: {display:"flex",overflowX:"auto",gap:6,padding:"12px 16px",background:"#111",scrollbarWidth:"none"},
+    tab: {flexShrink:0,padding:"7px 14px",borderRadius:20,border:"1px solid #333",background:"#1a1a1a",color:"#888",cursor:"pointer",fontSize:12,fontWeight:600},
+    tabActive: {background:"#FF6B00",color:"#fff",border:"1px solid #FF6B00"},
+    grid: {display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,padding:"14px 16px"},
+    card: {background:"#1a1a1a",borderRadius:14,padding:14,border:"1px solid #222",textAlign:"center"},
+    addBtn: {background:"#FF6B00",border:"none",color:"#fff",borderRadius:8,padding:"7px 14px",cursor:"pointer",fontWeight:700,fontSize:12,width:"100%"},
+    qtyRow: {display:"flex",alignItems:"center",justifyContent:"center",gap:10},
+    qtyBtn: {background:"#FF6B00",border:"none",color:"#fff",borderRadius:6,width:28,height:28,cursor:"pointer",fontSize:16,fontWeight:900},
+    floatBtn: {position:"fixed",bottom:20,left:16,right:16,background:"#FF6B00",border:"none",color:"#fff",borderRadius:14,padding:"16px",fontSize:15,fontWeight:900,cursor:"pointer",zIndex:200},
+    input: {width:"100%",background:"#1a1a1a",border:"1px solid #333",color:"#fff",borderRadius:10,padding:"12px",fontSize:14,boxSizing:"border-box"},
+    label: {display:"block",fontSize:12,color:"#aaa",marginBottom:6,fontWeight:600},
+    toggleBtn: {flex:1,background:"#1a1a1a",border:"1px solid #333",color:"#aaa",borderRadius:10,padding:"12px",cursor:"pointer",fontSize:13,fontWeight:600},
+    toggleActive: {background:"rgba(255,107,0,0.15)",border:"1px solid #FF6B00",color:"#FF6B00"},
+    payBtn: {display:"flex",alignItems:"center",gap:10,width:"100%",background:"#1a1a1a",border:"1px solid #333",color:"#fff",borderRadius:10,padding:"12px",cursor:"pointer",fontSize:14,marginBottom:8},
+    placeBtn: {width:"100%",background:"#FF6B00",border:"none",color:"#fff",borderRadius:12,padding:"16px",fontSize:16,fontWeight:900,cursor:"pointer"},
+    btnDisabled: {background:"#444",cursor:"not-allowed"},
+  };
+
+  if (step === "confirm" && orderResult) {
+    return (
+      <div style={st.page}>
+        <div style={{padding:24,textAlign:"center"}}>
+          <div style={{fontSize:70}}>✅</div>
+          <h2 style={{color:"#FF6B00"}}>Order Imehifadhiwa!</h2>
+          <div style={{background:"#FF6B00",color:"#fff",display:"inline-block",borderRadius:20,padding:"6px 20px",fontWeight:900,fontSize:18,marginBottom:16}}>#{orderResult.orderNumber}</div>
+          <p style={{color:"#aaa"}}>Asante <strong style={{color:"#fff"}}>{orderResult.customerName}</strong>!</p>
+          <div style={{background:"#1a1a1a",borderRadius:12,padding:14,margin:"14px 0",textAlign:"left"}}>
+            <div style={{display:"flex",justifyContent:"space-between",padding:"8px 0",fontSize:14,color:"#aaa"}}>
+              <span>⏱️ Muda</span><span style={{color:"#FF6B00"}}>~{orderResult.estimatedTime} dakika</span>
+            </div>
+            <div style={{display:"flex",justifyContent:"space-between",padding:"8px 0",fontSize:14,color:"#aaa"}}>
+              <span>💰 Jumla</span><span style={{color:"#FF6B00"}}>{fmt(orderResult.total)}</span>
+            </div>
+          </div>
+          <button style={{...st.placeBtn,marginTop:8}} onClick={() => {setStep("menu");setOrderResult(null);setCustomerName("");setCustomerPhone("");setPayment("");}}>
+            🍽️ Agiza Tena
+          </button>
+        </div>
+      </div>
     );
+  }
+
+  if (step === "checkout") {
+    return (
+      <div style={st.page}>
+        <div style={{padding:20,maxWidth:500,margin:"0 auto"}}>
+          <button style={{background:"none",border:"1px solid #333",color:"#aaa",borderRadius:8,padding:"6px 14px",cursor:"pointer",marginBottom:16}} onClick={() => setStep("menu")}>← Rudi</button>
+          <h2 style={{color:"#FF6B00",marginBottom:20}}>📋 Kamilisha Order</h2>
+          {error && <div style={{background:"rgba(255,50,50,0.1)",border:"1px solid #FF4444",borderRadius:10,padding:"10px 14px",marginBottom:14,color:"#FF6666"}}>⚠️ {error}</div>}
+          <div style={{marginBottom:16}}>
+            <label style={st.label}>Jina Lako *</label>
+            <input style={st.input} placeholder="e.g. Amina Hassan" value={customerName} onChange={e => setCustomerName(e.target.value)} />
+          </div>
+          <div style={{marginBottom:16}}>
+            <label style={st.label}>Namba ya Simu *</label>
+            <input style={st.input} placeholder="e.g. 0712345678" value={customerPhone} onChange={e => setCustomerPhone(e.target.value)} type="tel" />
+          </div>
+          <div style={{marginBottom:16}}>
+            <label style={st.label}>Aina ya Huduma *</label>
+            <div style={{display:"flex",gap:10}}>
+              {["pickup","delivery"].map(t => (
+                <button key={t} style={{...st.toggleBtn,...(delivery===t?st.toggleActive:{})}} onClick={() => setDelivery(t)}>
+                  {t==="pickup"?"🏃 Pickup":"🛵 Delivery"}
+                </button>
+              ))}
+            </div>
+          </div>
+          {delivery === "delivery" && (
+            <div style={{marginBottom:16}}>
+              <label style={st.label}>Anwani *</label>
+              <input style={st.input} placeholder="Mtaa / Nyumba yako" value={address} onChange={e => setAddress(e.target.value)} />
+            </div>
+          )}
+          <div style={{marginBottom:16}}>
+            <label style={st.label}>Njia ya Malipo *</label>
+            {paymentMethods.map(pm => (
+              <button key={pm.id} style={{...st.payBtn,...(payment===pm.id?{borderColor:pm.color,background:pm.color+"22"}:{})}} onClick={() => setPayment(pm.id)}>
+                {pm.icon} {pm.name} {payment===pm.id && "✓"}
+              </button>
+            ))}
+          </div>
+          <div style={{background:"#111",borderRadius:12,padding:14,margin:"16px 0"}}>
+            <div style={{display:"flex",justifyContent:"space-between",padding:"6px 0",fontSize:14,color:"#aaa"}}><span>Chakula</span><span>{fmt(totalPrice)}</span></div>
+            {delivery==="delivery" && <div style={{display:"flex",justifyContent:"space-between",padding:"6px 0",fontSize:14,color:"#aaa"}}><span>Delivery</span><span>{fmt(2000)}</span></div>}
+            <div style={{display:"flex",justifyContent:"space-between",padding:"10px 0 6px",borderTop:"1px solid #333",fontWeight:900,fontSize:15}}><strong>JUMLA</strong><strong style={{color:"#FF6B00"}}>{fmt(totalPrice+(delivery==="delivery"?2000:0))}</strong></div>
+          </div>
+          <button style={{...st.placeBtn,...(!customerName||!customerPhone||!payment||saving?st.btnDisabled:{})}} onClick={placeOrder} disabled={!customerName||!customerPhone||!payment||saving}>
+            {saving ? "⏳ Inahifadhi..." : "🔥 Wasilisha Order"}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={st.page}>
+      <div style={st.header}>
+        <div style={{display:"flex",alignItems:"center",gap:10}}>
+          <span style={{fontSize:24}}>🍽️</span>
+          <div>
+            <div style={st.logoName}>ANIFOOD</div>
+            <div style={st.logoSub}>🔥 Nyamongo</div>
+          </div>
+        </div>
+        {totalItems > 0 && (
+          <button style={st.cartBtn} onClick={() => setStep("checkout")}>
+            🛒 {totalItems} — {fmt(totalPrice)}
+          </button>
+        )}
+      </div>
+      <div style={st.tabs}>
+        {categories.map(cat => (
+          <button key={cat} style={{...st.tab,...(activeCategory===cat?st.tabActive:{})}} onClick={() => setActiveCategory(cat)}>{cat}</button>
+        ))}
+      </div>
+      <div style={st.grid}>
+        {filtered.map(item => {
+          const qty = getQty(item.id);
+          return (
+            <div key={item.id} style={st.card}>
+              <div style={{fontSize:40,marginBottom:8}}>{item.emoji}</div>
+              <div style={{fontWeight:800,fontSize:13,marginBottom:4}}>{item.name}</div>
+              <div style={{color:"#FF6B00",fontWeight:900,marginBottom:4}}>{fmt(item.price)}</div>
+              {item.time > 0 && <div style={{fontSize:11,color:"#888",marginBottom:8}}>⏱️ {item.time} dak</div>}
+              {qty === 0 ? (
+                <button style={st.addBtn} onClick={() => addToCart(item)}>+ Ongeza</button>
+              ) : (
+                <div style={st.qtyRow}>
+                  <button style={st.qtyBtn} onClick={() => removeFromCart(item.id)}>−</button>
+                  <span style={{fontWeight:900,fontSize:16,minWidth:20,textAlign:"center"}}>{qty}</span>
+                  <button style={st.qtyBtn} onClick={() => addToCart(item)}>+</button>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      {totalItems > 0 && (
+        <button style={st.floatBtn} onClick={() => setStep("checkout")}>
+          🛒 {totalItems} Vitu — {fmt(totalPrice)} →
+        </button>
+      )}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App));
   </script>
 </body>
 </html>
