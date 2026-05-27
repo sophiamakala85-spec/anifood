@@ -4,20 +4,92 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ANIFOOD 🍽️</title>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #0A0A0A; font-family: 'Nunito', sans-serif; color: #fff; }
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-track { background: #111; }
+    ::-webkit-scrollbar-thumb { background: #FF6B00; border-radius: 2px; }
+    .nav-bar { position: fixed; bottom: 0; left: 0; right: 0; background: #111; border-top: 1px solid #222; display: flex; z-index: 100; }
+    .nav-btn { flex: 1; padding: 10px 4px 8px; background: none; border: none; color: #555; cursor: pointer; font-size: 10px; font-family: 'Nunito', sans-serif; font-weight: 700; display: flex; flex-direction: column; align-items: center; gap: 3px; transition: color 0.2s; }
+    .nav-btn.active { color: #FF6B00; }
+    .nav-btn .icon { font-size: 22px; }
+    .page { min-height: 100vh; padding-bottom: 70px; }
+    .header { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; background: #111; border-bottom: 2px solid #FF6B00; position: sticky; top: 0; z-index: 50; }
+    .logo-name { font-family: 'Bebas Neue', sans-serif; font-size: 26px; color: #FF6B00; letter-spacing: 3px; }
+    .logo-sub { font-size: 10px; color: #888; font-weight: 600; }
+    .cart-btn { background: #FF6B00; border: none; color: #fff; border-radius: 20px; padding: 8px 14px; cursor: pointer; font-weight: 800; font-size: 13px; font-family: 'Nunito', sans-serif; }
+    .tabs { display: flex; overflow-x: auto; gap: 6px; padding: 12px 16px; background: #111; scrollbar-width: none; }
+    .tabs::-webkit-scrollbar { display: none; }
+    .tab { flex-shrink: 0; padding: 7px 14px; border-radius: 20px; border: 1px solid #333; background: #1a1a1a; color: #888; cursor: pointer; font-size: 12px; font-weight: 700; font-family: 'Nunito', sans-serif; transition: all 0.2s; }
+    .tab.active { background: #FF6B00; color: #fff; border-color: #FF6B00; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 14px 16px; }
+    .card { background: #1a1a1a; border-radius: 16px; padding: 14px; border: 1px solid #222; text-align: center; transition: transform 0.2s; }
+    .card:active { transform: scale(0.97); }
+    .card-emoji { font-size: 42px; margin-bottom: 8px; }
+    .card-name { font-weight: 800; font-size: 13px; margin-bottom: 4px; }
+    .card-price { color: #FF6B00; font-weight: 900; font-size: 14px; margin-bottom: 4px; }
+    .card-time { font-size: 11px; color: #666; margin-bottom: 10px; }
+    .add-btn { background: #FF6B00; border: none; color: #fff; border-radius: 10px; padding: 8px 14px; cursor: pointer; font-weight: 800; font-size: 12px; width: 100%; font-family: 'Nunito', sans-serif; }
+    .qty-row { display: flex; align-items: center; justify-content: center; gap: 12px; }
+    .qty-btn { background: #FF6B00; border: none; color: #fff; border-radius: 8px; width: 30px; height: 30px; cursor: pointer; font-size: 18px; font-weight: 900; display: flex; align-items: center; justify-content: center; }
+    .float-btn { position: fixed; bottom: 78px; left: 16px; right: 16px; background: linear-gradient(135deg, #FF6B00, #FF8C00); border: none; color: #fff; border-radius: 16px; padding: 16px; font-size: 15px; font-weight: 900; cursor: pointer; z-index: 200; box-shadow: 0 4px 20px rgba(255,107,0,0.5); font-family: 'Nunito', sans-serif; }
+    .input { width: 100%; background: #1a1a1a; border: 1px solid #2a2a2a; color: #fff; border-radius: 12px; padding: 13px; font-size: 14px; outline: none; font-family: 'Nunito', sans-serif; transition: border-color 0.2s; }
+    .input:focus { border-color: #FF6B00; }
+    .label { display: block; font-size: 12px; color: #888; margin-bottom: 6px; font-weight: 700; letter-spacing: 0.5px; }
+    .section-title { font-family: 'Bebas Neue', sans-serif; font-size: 22px; color: #FF6B00; letter-spacing: 2px; margin-bottom: 16px; }
+    /* Community styles */
+    .post-card { background: #1a1a1a; border-radius: 16px; padding: 16px; margin: 0 16px 14px; border: 1px solid #222; }
+    .post-header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+    .avatar { width: 38px; height: 38px; border-radius: 50%; background: linear-gradient(135deg, #FF6B00, #FF8C00); display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 16px; flex-shrink: 0; }
+    .post-author { font-weight: 800; font-size: 14px; }
+    .post-time { font-size: 11px; color: #666; }
+    .post-text { font-size: 14px; line-height: 1.6; color: #ddd; margin-bottom: 12px; }
+    .post-media { width: 100%; border-radius: 12px; max-height: 280px; object-fit: cover; margin-bottom: 12px; background: #222; }
+    .post-actions { display: flex; gap: 16px; }
+    .action-btn { background: none; border: none; color: #666; cursor: pointer; font-size: 13px; font-weight: 700; font-family: 'Nunito', sans-serif; display: flex; align-items: center; gap: 5px; padding: 4px 8px; border-radius: 8px; transition: all 0.2s; }
+    .action-btn:hover { color: #FF6B00; background: rgba(255,107,0,0.1); }
+    .action-btn.liked { color: #FF6B00; }
+    /* Upload area */
+    .upload-area { border: 2px dashed #333; border-radius: 14px; padding: 20px; text-align: center; cursor: pointer; transition: border-color 0.2s; margin-bottom: 12px; }
+    .upload-area:hover { border-color: #FF6B00; }
+    /* Chat styles */
+    .chat-messages { padding: 16px; display: flex; flex-direction: column; gap: 12px; min-height: 400px; }
+    .msg-bubble { max-width: 75%; padding: 10px 14px; border-radius: 18px; font-size: 14px; line-height: 1.5; }
+    .msg-mine { background: linear-gradient(135deg, #FF6B00, #FF8C00); color: #fff; align-self: flex-end; border-bottom-right-radius: 4px; }
+    .msg-other { background: #1a1a1a; color: #ddd; align-self: flex-start; border-bottom-left-radius: 4px; border: 1px solid #222; }
+    .msg-name { font-size: 11px; color: #888; margin-bottom: 4px; font-weight: 700; }
+    .msg-time { font-size: 10px; opacity: 0.7; margin-top: 4px; }
+    .chat-input-area { position: sticky; bottom: 70px; background: #111; border-top: 1px solid #222; padding: 12px 16px; display: flex; gap: 10px; align-items: center; }
+    .send-btn { background: #FF6B00; border: none; color: #fff; border-radius: 12px; padding: 12px 16px; cursor: pointer; font-size: 18px; flex-shrink: 0; }
+    /* Profile */
+    .profile-header { background: linear-gradient(180deg, #1a1a1a 0%, #0A0A0A 100%); padding: 30px 20px 20px; text-align: center; border-bottom: 1px solid #222; }
+    .profile-avatar { width: 80px; height: 80px; border-radius: 50%; background: linear-gradient(135deg, #FF6B00, #FF8C00); display: flex; align-items: center; justify-content: center; font-size: 36px; margin: 0 auto 12px; border: 3px solid #FF6B00; }
+    .setting-row { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid #1a1a1a; cursor: pointer; }
+    .setting-row:active { background: #1a1a1a; }
+    /* Loading */
+    .loading { text-align: center; padding: 40px; color: #555; }
+    .spinner { display: inline-block; width: 30px; height: 30px; border: 3px solid #222; border-top-color: #FF6B00; border-radius: 50%; animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .badge { background: #FF6B00; color: #fff; border-radius: 10px; padding: 2px 7px; font-size: 10px; font-weight: 900; }
+    textarea { resize: none; }
+    .video-thumb { width: 100%; border-radius: 12px; background: #222; display: flex; align-items: center; justify-content: center; height: 160px; font-size: 40px; margin-bottom: 12px; }
+  </style>
 </head>
-<body style="margin:0;padding:0;background:#0A0A0A">
+<body>
   <div id="root"></div>
   <script type="text/babel">
+const { useState, useEffect, useRef } = React;
 
-const { useState, useEffect } = React;
-
-// Firebase Config - BADILISHA NA YAKO
+// 🔴 BADILISHA NA CONFIG YAKO
 const firebaseConfig = {
   apiKey: "AIzaSyBQS9sxTh7HNllnLKq8zKGeTiKY3nybAi8",
   authDomain: "anifood-tz.firebaseapp.com",
@@ -29,6 +101,7 @@ const firebaseConfig = {
 
 if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
+const storage = firebase.storage();
 
 const menuData = [
   { id: 1, name: "Chipsi Mayai", price: 3500, time: 12, emoji: "🍳", category: "Chipsi" },
@@ -49,12 +122,24 @@ const paymentMethods = [
 ];
 
 const fmt = (n) => `TZS ${Number(n).toLocaleString()}`;
+const timeAgo = (ts) => {
+  if (!ts) return "sasa hivi";
+  const d = ts.toDate ? ts.toDate() : new Date(ts);
+  const s = Math.floor((Date.now() - d) / 1000);
+  if (s < 60) return "sasa hivi";
+  if (s < 3600) return Math.floor(s/60) + " dak";
+  if (s < 86400) return Math.floor(s/3600) + " saa";
+  return Math.floor(s/86400) + " siku";
+};
 
-function App() {
+// ══════════════════════════════════════════
+// ORDER PAGE
+// ══════════════════════════════════════════
+function OrderPage({ userName }) {
   const [cart, setCart] = useState([]);
   const [step, setStep] = useState("menu");
   const [activeCategory, setActiveCategory] = useState("Zote");
-  const [customerName, setCustomerName] = useState("");
+  const [customerName, setCustomerName] = useState(userName || "");
   const [customerPhone, setCustomerPhone] = useState("");
   const [delivery, setDelivery] = useState("pickup");
   const [address, setAddress] = useState("");
@@ -73,17 +158,14 @@ function App() {
     const ex = prev.find(c => c.id === item.id);
     return ex ? prev.map(c => c.id === item.id ? {...c, qty: c.qty+1} : c) : [...prev, {...item, qty:1}];
   });
-
   const removeFromCart = (id) => setCart(prev => {
     const ex = prev.find(c => c.id === id);
     return ex?.qty === 1 ? prev.filter(c => c.id !== id) : prev.map(c => c.id === id ? {...c, qty: c.qty-1} : c);
   });
-
   const getQty = (id) => cart.find(c => c.id === id)?.qty || 0;
 
   const placeOrder = async () => {
-    setSaving(true);
-    setError("");
+    setSaving(true); setError("");
     try {
       const orderData = {
         customerName, customerPhone,
@@ -98,162 +180,446 @@ function App() {
       };
       const ref = await db.collection("orders").add(orderData);
       setOrderResult({...orderData, firestoreId: ref.id});
-      setStep("confirm");
-      setCart([]);
-    } catch(e) {
-      setError("Kosa: " + e.message);
-    }
+      setStep("confirm"); setCart([]);
+    } catch(e) { setError("Kosa: " + e.message); }
     setSaving(false);
   };
 
-  const st = {
-    page: {minHeight:"100vh",background:"#0A0A0A",color:"#fff",fontFamily:"'Segoe UI',sans-serif",paddingBottom:100},
-    header: {display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 20px",background:"#111",borderBottom:"2px solid #FF6B00",position:"sticky",top:0,zIndex:50},
-    logoName: {fontSize:20,fontWeight:900,color:"#FF6B00",letterSpacing:2},
-    logoSub: {fontSize:10,color:"#888"},
-    cartBtn: {background:"#FF6B00",border:"none",color:"#fff",borderRadius:20,padding:"8px 14px",cursor:"pointer",fontWeight:800,fontSize:13},
-    tabs: {display:"flex",overflowX:"auto",gap:6,padding:"12px 16px",background:"#111",scrollbarWidth:"none"},
-    tab: {flexShrink:0,padding:"7px 14px",borderRadius:20,border:"1px solid #333",background:"#1a1a1a",color:"#888",cursor:"pointer",fontSize:12,fontWeight:600},
-    tabActive: {background:"#FF6B00",color:"#fff",border:"1px solid #FF6B00"},
-    grid: {display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,padding:"14px 16px"},
-    card: {background:"#1a1a1a",borderRadius:14,padding:14,border:"1px solid #222",textAlign:"center"},
-    addBtn: {background:"#FF6B00",border:"none",color:"#fff",borderRadius:8,padding:"7px 14px",cursor:"pointer",fontWeight:700,fontSize:12,width:"100%"},
-    qtyRow: {display:"flex",alignItems:"center",justifyContent:"center",gap:10},
-    qtyBtn: {background:"#FF6B00",border:"none",color:"#fff",borderRadius:6,width:28,height:28,cursor:"pointer",fontSize:16,fontWeight:900},
-    floatBtn: {position:"fixed",bottom:20,left:16,right:16,background:"#FF6B00",border:"none",color:"#fff",borderRadius:14,padding:"16px",fontSize:15,fontWeight:900,cursor:"pointer",zIndex:200},
-    input: {width:"100%",background:"#1a1a1a",border:"1px solid #333",color:"#fff",borderRadius:10,padding:"12px",fontSize:14,boxSizing:"border-box"},
-    label: {display:"block",fontSize:12,color:"#aaa",marginBottom:6,fontWeight:600},
-    toggleBtn: {flex:1,background:"#1a1a1a",border:"1px solid #333",color:"#aaa",borderRadius:10,padding:"12px",cursor:"pointer",fontSize:13,fontWeight:600},
-    toggleActive: {background:"rgba(255,107,0,0.15)",border:"1px solid #FF6B00",color:"#FF6B00"},
-    payBtn: {display:"flex",alignItems:"center",gap:10,width:"100%",background:"#1a1a1a",border:"1px solid #333",color:"#fff",borderRadius:10,padding:"12px",cursor:"pointer",fontSize:14,marginBottom:8},
-    placeBtn: {width:"100%",background:"#FF6B00",border:"none",color:"#fff",borderRadius:12,padding:"16px",fontSize:16,fontWeight:900,cursor:"pointer"},
-    btnDisabled: {background:"#444",cursor:"not-allowed"},
-  };
-
-  if (step === "confirm" && orderResult) {
-    return (
-      <div style={st.page}>
-        <div style={{padding:24,textAlign:"center"}}>
-          <div style={{fontSize:70}}>✅</div>
-          <h2 style={{color:"#FF6B00"}}>Order Imehifadhiwa!</h2>
-          <div style={{background:"#FF6B00",color:"#fff",display:"inline-block",borderRadius:20,padding:"6px 20px",fontWeight:900,fontSize:18,marginBottom:16}}>#{orderResult.orderNumber}</div>
-          <p style={{color:"#aaa"}}>Asante <strong style={{color:"#fff"}}>{orderResult.customerName}</strong>!</p>
-          <div style={{background:"#1a1a1a",borderRadius:12,padding:14,margin:"14px 0",textAlign:"left"}}>
-            <div style={{display:"flex",justifyContent:"space-between",padding:"8px 0",fontSize:14,color:"#aaa"}}>
-              <span>⏱️ Muda</span><span style={{color:"#FF6B00"}}>~{orderResult.estimatedTime} dakika</span>
+  if (step === "confirm" && orderResult) return (
+    <div className="page">
+      <div style={{padding:24, textAlign:"center", paddingTop:40}}>
+        <div style={{fontSize:80}}>✅</div>
+        <h2 style={{fontFamily:"Bebas Neue,sans-serif",fontSize:30,color:"#FF6B00",letterSpacing:2,margin:"10px 0"}}>Order Imehifadhiwa!</h2>
+        <div style={{background:"#FF6B00",color:"#fff",display:"inline-block",borderRadius:20,padding:"8px 24px",fontWeight:900,fontSize:20,marginBottom:16,letterSpacing:2}}>#{orderResult.orderNumber}</div>
+        <p style={{color:"#aaa",marginBottom:16}}>Asante <strong style={{color:"#fff"}}>{orderResult.customerName}</strong>!</p>
+        <div style={{background:"#1a1a1a",borderRadius:14,padding:16,margin:"0 0 20px",textAlign:"left",border:"1px solid #222"}}>
+          {[["⏱️ Muda", `~${orderResult.estimatedTime} dakika`],["💰 Jumla", fmt(orderResult.total)],["💳 Malipo", orderResult.payment],["📦 Aina", orderResult.delivery === "delivery" ? "🛵 Delivery" : "🏃 Pickup"]].map(([k,v]) => (
+            <div key={k} style={{display:"flex",justifyContent:"space-between",padding:"8px 0",borderBottom:"1px solid #222",fontSize:14,color:"#aaa"}}>
+              <span>{k}</span><span style={{color:"#fff",fontWeight:700}}>{v}</span>
             </div>
-            <div style={{display:"flex",justifyContent:"space-between",padding:"8px 0",fontSize:14,color:"#aaa"}}>
-              <span>💰 Jumla</span><span style={{color:"#FF6B00"}}>{fmt(orderResult.total)}</span>
-            </div>
-          </div>
-          <button style={{...st.placeBtn,marginTop:8}} onClick={() => {setStep("menu");setOrderResult(null);setCustomerName("");setCustomerPhone("");setPayment("");}}>
-            🍽️ Agiza Tena
-          </button>
+          ))}
         </div>
+        <button className="float-btn" style={{position:"relative",bottom:"auto",left:"auto",right:"auto",display:"block",width:"100%"}} onClick={() => {setStep("menu");setOrderResult(null);setCustomerName(userName||"");setCustomerPhone("");setPayment("");setDelivery("pickup");}}>
+          🍽️ Agiza Tena
+        </button>
       </div>
-    );
-  }
+    </div>
+  );
 
-  if (step === "checkout") {
-    return (
-      <div style={st.page}>
-        <div style={{padding:20,maxWidth:500,margin:"0 auto"}}>
-          <button style={{background:"none",border:"1px solid #333",color:"#aaa",borderRadius:8,padding:"6px 14px",cursor:"pointer",marginBottom:16}} onClick={() => setStep("menu")}>← Rudi</button>
-          <h2 style={{color:"#FF6B00",marginBottom:20}}>📋 Kamilisha Order</h2>
-          {error && <div style={{background:"rgba(255,50,50,0.1)",border:"1px solid #FF4444",borderRadius:10,padding:"10px 14px",marginBottom:14,color:"#FF6666"}}>⚠️ {error}</div>}
-          <div style={{marginBottom:16}}>
-            <label style={st.label}>Jina Lako *</label>
-            <input style={st.input} placeholder="e.g. Amina Hassan" value={customerName} onChange={e => setCustomerName(e.target.value)} />
+  if (step === "checkout") return (
+    <div className="page">
+      <div style={{padding:16, maxWidth:500, margin:"0 auto"}}>
+        <button style={{background:"none",border:"1px solid #333",color:"#aaa",borderRadius:10,padding:"8px 16px",cursor:"pointer",marginBottom:16,fontFamily:"Nunito,sans-serif",fontWeight:700}} onClick={() => setStep("menu")}>← Rudi</button>
+        <div className="section-title">📋 Kamilisha Order</div>
+        {error && <div style={{background:"rgba(255,50,50,0.1)",border:"1px solid #FF4444",borderRadius:12,padding:"12px 16px",marginBottom:14,color:"#FF6666",fontSize:13}}>⚠️ {error}</div>}
+        {[["Jina Lako *","text","e.g. Amina Hassan",customerName,setCustomerName],["Namba ya Simu *","tel","e.g. 0712345678",customerPhone,setCustomerPhone]].map(([lbl,type,ph,val,set]) => (
+          <div key={lbl} style={{marginBottom:14}}>
+            <label className="label">{lbl}</label>
+            <input className="input" type={type} placeholder={ph} value={val} onChange={e => set(e.target.value)} />
           </div>
-          <div style={{marginBottom:16}}>
-            <label style={st.label}>Namba ya Simu *</label>
-            <input style={st.input} placeholder="e.g. 0712345678" value={customerPhone} onChange={e => setCustomerPhone(e.target.value)} type="tel" />
-          </div>
-          <div style={{marginBottom:16}}>
-            <label style={st.label}>Aina ya Huduma *</label>
-            <div style={{display:"flex",gap:10}}>
-              {["pickup","delivery"].map(t => (
-                <button key={t} style={{...st.toggleBtn,...(delivery===t?st.toggleActive:{})}} onClick={() => setDelivery(t)}>
-                  {t==="pickup"?"🏃 Pickup":"🛵 Delivery"}
-                </button>
-              ))}
-            </div>
-          </div>
-          {delivery === "delivery" && (
-            <div style={{marginBottom:16}}>
-              <label style={st.label}>Anwani *</label>
-              <input style={st.input} placeholder="Mtaa / Nyumba yako" value={address} onChange={e => setAddress(e.target.value)} />
-            </div>
-          )}
-          <div style={{marginBottom:16}}>
-            <label style={st.label}>Njia ya Malipo *</label>
-            {paymentMethods.map(pm => (
-              <button key={pm.id} style={{...st.payBtn,...(payment===pm.id?{borderColor:pm.color,background:pm.color+"22"}:{})}} onClick={() => setPayment(pm.id)}>
-                {pm.icon} {pm.name} {payment===pm.id && "✓"}
+        ))}
+        <div style={{marginBottom:14}}>
+          <label className="label">Aina ya Huduma *</label>
+          <div style={{display:"flex",gap:10}}>
+            {["pickup","delivery"].map(t => (
+              <button key={t} style={{flex:1,background:delivery===t?"rgba(255,107,0,0.15)":"#1a1a1a",border:`1px solid ${delivery===t?"#FF6B00":"#333"}`,color:delivery===t?"#FF6B00":"#aaa",borderRadius:12,padding:"12px",cursor:"pointer",fontFamily:"Nunito,sans-serif",fontWeight:700}} onClick={() => setDelivery(t)}>
+                {t==="pickup"?"🏃 Pickup":"🛵 Delivery"}
               </button>
             ))}
           </div>
-          <div style={{background:"#111",borderRadius:12,padding:14,margin:"16px 0"}}>
-            <div style={{display:"flex",justifyContent:"space-between",padding:"6px 0",fontSize:14,color:"#aaa"}}><span>Chakula</span><span>{fmt(totalPrice)}</span></div>
-            {delivery==="delivery" && <div style={{display:"flex",justifyContent:"space-between",padding:"6px 0",fontSize:14,color:"#aaa"}}><span>Delivery</span><span>{fmt(2000)}</span></div>}
-            <div style={{display:"flex",justifyContent:"space-between",padding:"10px 0 6px",borderTop:"1px solid #333",fontWeight:900,fontSize:15}}><strong>JUMLA</strong><strong style={{color:"#FF6B00"}}>{fmt(totalPrice+(delivery==="delivery"?2000:0))}</strong></div>
-          </div>
-          <button style={{...st.placeBtn,...(!customerName||!customerPhone||!payment||saving?st.btnDisabled:{})}} onClick={placeOrder} disabled={!customerName||!customerPhone||!payment||saving}>
-            {saving ? "⏳ Inahifadhi..." : "🔥 Wasilisha Order"}
-          </button>
         </div>
+        {delivery === "delivery" && (
+          <div style={{marginBottom:14}}>
+            <label className="label">Anwani *</label>
+            <input className="input" placeholder="Mtaa / Nyumba yako" value={address} onChange={e => setAddress(e.target.value)} />
+          </div>
+        )}
+        <div style={{marginBottom:14}}>
+          <label className="label">Njia ya Malipo *</label>
+          {paymentMethods.map(pm => (
+            <button key={pm.id} style={{display:"flex",alignItems:"center",gap:10,width:"100%",background:payment===pm.id?pm.color+"22":"#1a1a1a",border:`1px solid ${payment===pm.id?pm.color:"#333"}`,color:"#fff",borderRadius:12,padding:"13px",cursor:"pointer",fontSize:14,marginBottom:8,fontFamily:"Nunito,sans-serif",fontWeight:700}} onClick={() => setPayment(pm.id)}>
+              {pm.icon} {pm.name} {payment===pm.id && "✓"}
+            </button>
+          ))}
+        </div>
+        <div style={{background:"#111",borderRadius:14,padding:14,margin:"16px 0",border:"1px solid #222"}}>
+          <div style={{display:"flex",justifyContent:"space-between",padding:"6px 0",fontSize:14,color:"#aaa"}}><span>Chakula</span><span>{fmt(totalPrice)}</span></div>
+          {delivery==="delivery" && <div style={{display:"flex",justifyContent:"space-between",padding:"6px 0",fontSize:14,color:"#aaa"}}><span>Delivery</span><span>{fmt(2000)}</span></div>}
+          <div style={{display:"flex",justifyContent:"space-between",padding:"10px 0 4px",borderTop:"1px solid #222",fontSize:16}}><strong>JUMLA</strong><strong style={{color:"#FF6B00"}}>{fmt(totalPrice+(delivery==="delivery"?2000:0))}</strong></div>
+        </div>
+        <button style={{width:"100%",background:!customerName||!customerPhone||!payment||saving?"#333":"#FF6B00",border:"none",color:!customerName||!customerPhone||!payment||saving?"#666":"#fff",borderRadius:14,padding:"16px",fontSize:16,fontWeight:900,cursor:"pointer",fontFamily:"Nunito,sans-serif"}} onClick={placeOrder} disabled={!customerName||!customerPhone||!payment||saving}>
+          {saving ? "⏳ Inahifadhi..." : "🔥 Wasilisha Order"}
+        </button>
       </div>
-    );
-  }
+    </div>
+  );
 
   return (
-    <div style={st.page}>
-      <div style={st.header}>
+    <div className="page">
+      <div className="header">
         <div style={{display:"flex",alignItems:"center",gap:10}}>
-          <span style={{fontSize:24}}>🍽️</span>
-          <div>
-            <div style={st.logoName}>ANIFOOD</div>
-            <div style={st.logoSub}>🔥 Nyamongo</div>
-          </div>
+          <span style={{fontSize:26}}>🍽️</span>
+          <div><div className="logo-name">ANIFOOD</div><div className="logo-sub">🔥 Nyamongo</div></div>
         </div>
-        {totalItems > 0 && (
-          <button style={st.cartBtn} onClick={() => setStep("checkout")}>
-            🛒 {totalItems} — {fmt(totalPrice)}
-          </button>
-        )}
+        {totalItems > 0 && <button className="cart-btn" onClick={() => setStep("checkout")}>🛒 {totalItems} — {fmt(totalPrice)}</button>}
       </div>
-      <div style={st.tabs}>
-        {categories.map(cat => (
-          <button key={cat} style={{...st.tab,...(activeCategory===cat?st.tabActive:{})}} onClick={() => setActiveCategory(cat)}>{cat}</button>
-        ))}
+      <div className="tabs">
+        {categories.map(cat => <button key={cat} className={`tab ${activeCategory===cat?"active":""}`} onClick={() => setActiveCategory(cat)}>{cat}</button>)}
       </div>
-      <div style={st.grid}>
+      <div className="grid">
         {filtered.map(item => {
           const qty = getQty(item.id);
           return (
-            <div key={item.id} style={st.card}>
-              <div style={{fontSize:40,marginBottom:8}}>{item.emoji}</div>
-              <div style={{fontWeight:800,fontSize:13,marginBottom:4}}>{item.name}</div>
-              <div style={{color:"#FF6B00",fontWeight:900,marginBottom:4}}>{fmt(item.price)}</div>
-              {item.time > 0 && <div style={{fontSize:11,color:"#888",marginBottom:8}}>⏱️ {item.time} dak</div>}
+            <div key={item.id} className="card">
+              <div className="card-emoji">{item.emoji}</div>
+              <div className="card-name">{item.name}</div>
+              <div className="card-price">{fmt(item.price)}</div>
+              {item.time > 0 && <div className="card-time">⏱️ {item.time} dak</div>}
               {qty === 0 ? (
-                <button style={st.addBtn} onClick={() => addToCart(item)}>+ Ongeza</button>
+                <button className="add-btn" onClick={() => addToCart(item)}>+ Ongeza</button>
               ) : (
-                <div style={st.qtyRow}>
-                  <button style={st.qtyBtn} onClick={() => removeFromCart(item.id)}>−</button>
-                  <span style={{fontWeight:900,fontSize:16,minWidth:20,textAlign:"center"}}>{qty}</span>
-                  <button style={st.qtyBtn} onClick={() => addToCart(item)}>+</button>
+                <div className="qty-row">
+                  <button className="qty-btn" onClick={() => removeFromCart(item.id)}>−</button>
+                  <span style={{fontWeight:900,fontSize:18,minWidth:24,textAlign:"center"}}>{qty}</span>
+               <button className="qty-btn" onClick={() => addToCart(item)}>+</button>
                 </div>
               )}
             </div>
           );
         })}
       </div>
-      {totalItems > 0 && (
-        <button style={st.floatBtn} onClick={() => setStep("checkout")}>
-          🛒 {totalItems} Vitu — {fmt(totalPrice)} →
-        </button>
+      {totalItems > 0 && <button className="float-btn" onClick={() => setStep("checkout")}>🛒 {totalItems} Vitu — {fmt(totalPrice)} →</button>}
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════
+// COMMUNITY PAGE
+// ══════════════════════════════════════════
+function CommunityPage({ userName }) {
+  const [posts, setPosts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [postText, setPostText] = useState("");
+  const [mediaFile, setMediaFile] = useState(null);
+  const [mediaPreview, setMediaPreview] = useState(null);
+  const [mediaType, setMediaType] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [authorName, setAuthorName] = useState(userName || "");
+  const fileRef = useRef();
+
+  useEffect(() => {
+    const unsub = db.collection("posts").orderBy("createdAt","desc").limit(30)
+      .onSnapshot(snap => {
+        setPosts(snap.docs.map(d => ({id:d.id,...d.data()})));
+        setLoading(false);
+      }, () => setLoading(false));
+    return () => unsub();
+  }, []);
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setMediaFile(file);
+    setMediaType(file.type.startsWith("video") ? "video" : "image");
+    const reader = new FileReader();
+    reader.onload = ev => setMediaPreview(ev.target.result);
+    reader.readAsDataURL(file);
+  };
+
+  const submitPost = async () => {
+    if (!postText.trim() && !mediaFile) return;
+    setUploading(true);
+    try {
+      let mediaUrl = null;
+      let mediaTypeStr = null;
+      if (mediaFile) {
+        const fileRef2 = storage.ref(`community/${Date.now()}_${mediaFile.name}`);
+        const task = fileRef2.put(mediaFile);
+        await new Promise((res, rej) => {
+          task.on("state_changed",
+            snap => setUploadProgress(Math.round(snap.bytesTransferred/snap.totalBytes*100)),
+            rej, async () => { mediaUrl = await task.snapshot.ref.getDownloadURL(); res(); }
+          );
+        });
+        mediaTypeStr = mediaType;
+      }
+      await db.collection("posts").add({
+        author: authorName || "Mgeni",
+        text: postText,
+        mediaUrl, mediaType: mediaTypeStr,
+        likes: 0, likedBy: [],
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      setPostText(""); setMediaFile(null); setMediaPreview(null); setMediaType(null);
+      setUploadProgress(0); setShowForm(false);
+    } catch(e) { alert("Kosa: " + e.message); }
+    setUploading(false);
+  };
+
+  const toggleLike = async (post) => {
+    const likes = post.likedBy || [];
+    const liked = likes.includes(authorName);
+    await db.collection("posts").doc(post.id).update({
+      likes: firebase.firestore.FieldValue.increment(liked ? -1 : 1),
+      likedBy: liked ? firebase.firestore.FieldValue.arrayRemove(authorName) : firebase.firestore.FieldValue.arrayUnion(authorName)
+    });
+  };
+
+  return (
+    <div className="page">
+      <div className="header">
+        <div><div className="logo-name" style={{fontSize:22}}>JAMII 🌍</div><div className="logo-sub">Shiriki mawazo yako</div></div>
+        <button className="cart-btn" onClick={() => setShowForm(!showForm)}>{showForm ? "✕ Funga" : "✏️ Andika"}</button>
+      </div>
+
+      {showForm && (
+        <div style={{padding:16,background:"#111",borderBottom:"1px solid #222"}}>
+          <div style={{marginBottom:10}}>
+            <label className="label">Jina Lako</label>
+            <input className="input" placeholder="Jina lako" value={authorName} onChange={e => setAuthorName(e.target.value)} />
+          </div>
+          <textarea className="input" rows={3} placeholder="Andika mawazo yako, uzoefu wa chakula, au chochote..." value={postText} onChange={e => setPostText(e.target.value)} style={{marginBottom:10}} />
+          {mediaPreview && (
+            <div style={{marginBottom:10,position:"relative"}}>
+              {mediaType === "video"
+                ? <video src={mediaPreview} controls style={{width:"100%",borderRadius:12,maxHeight:200}} />
+                : <img src={mediaPreview} style={{width:"100%",borderRadius:12,maxHeight:200,objectFit:"cover"}} />
+              }
+              <button onClick={() => {setMediaFile(null);setMediaPreview(null);}} style={{position:"absolute",top:8,right:8,background:"rgba(0,0,0,0.7)",border:"none",color:"#fff",borderRadius:"50%",width:28,height:28,cursor:"pointer",fontSize:14}}>✕</button>
+            </div>
+          )}
+          <input ref={fileRef} type="file" accept="image/*,video/*" style={{display:"none"}} onChange={handleFileChange} />
+          <div style={{display:"flex",gap:10,marginBottom:12}}>
+            <button style={{flex:1,background:"#1a1a1a",border:"1px solid #333",color:"#aaa",borderRadius:10,padding:"10px",cursor:"pointer",fontFamily:"Nunito,sans-serif",fontWeight:700}} onClick={() => fileRef.current.click()}>
+              📷 Picha/Video
+            </button>
+          </div>
+          {uploading && (
+            <div style={{marginBottom:10}}>
+              <div style={{background:"#222",borderRadius:10,height:6,overflow:"hidden"}}>
+                <div style={{background:"#FF6B00",height:"100%",width:`${uploadProgress}%`,transition:"width 0.3s"}} />
+              </div>
+              <div style={{fontSize:12,color:"#888",marginTop:4,textAlign:"center"}}>{uploadProgress}% imepakiwa...</div>
+            </div>
+          )}
+          <button style={{width:"100%",background:uploading?"#333":"#FF6B00",border:"none",color:"#fff",borderRadius:12,padding:"13px",fontWeight:900,fontSize:15,cursor:"pointer",fontFamily:"Nunito,sans-serif"}} onClick={submitPost} disabled={uploading}>
+            {uploading ? "⏳ Inapakia..." : "🚀 Chapisha"}
+          </button>
+        </div>
       )}
+
+      <div style={{paddingTop:14}}>
+        {loading ? (
+          <div className="loading"><div className="spinner" /><p style={{marginTop:12}}>Inapakia...</p></div>
+        ) : posts.length === 0 ? (
+          <div className="loading">
+            <div style={{fontSize:60}}>🌍</div>
+            <p style={{marginTop:12,color:"#555"}}>Hakuna machapisho bado.</p>
+            <p style={{color:"#444",fontSize:13}}>Kuwa wa kwanza kushiriki!</p>
+          </div>
+        ) : posts.map(post => (
+          <div key={post.id} className="post-card">
+            <div className="post-header">
+              <div className="avatar">{(post.author||"?")[0].toUpperCase()}</div>
+              <div>
+                <div className="post-author">{post.author || "Mgeni"}</div>
+                <div className="post-time">{timeAgo(post.createdAt)}</div>
+              </div>
+            </div>
+            {post.text && <p className="post-text">{post.text}</p>}
+            {post.mediaUrl && (
+              post.mediaType === "video"
+                ? <video src={post.mediaUrl} controls className="post-media" />
+                : <img src={post.mediaUrl} className="post-media" alt="post" />
+            )}
+            <div className="post-actions">
+              <button className={`action-btn ${(post.likedBy||[]).includes(authorName)?"liked":""}`} onClick={() => toggleLike(post)}>
+                ❤️ {post.likes || 0}
+              </button>
+              <button className="action-btn">💬 Jibu</button>
+              <button className="action-btn">↗️ Shiriki</button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════
+// LIVE CHAT PAGE
+// ══════════════════════════════════════════
+function ChatPage({ userName }) {
+  const [messages, setMessages] = useState([]);
+  const [text, setText] = useState("");
+  const [name, setName] = useState(userName || "");
+  const [nameSet, setNameSet] = useState(!!userName);
+  const [loading, setLoading] = useState(true);
+  const bottomRef = useRef();
+
+  useEffect(() => {
+    const unsub = db.collection("messages").orderBy("createdAt","asc").limit(100)
+      .onSnapshot(snap => {
+        setMessages(snap.docs.map(d => ({id:d.id,...d.data()})));
+        setLoading(false);
+        setTimeout(() => bottomRef.current?.scrollIntoView({behavior:"smooth"}), 100);
+      }, () => setLoading(false));
+    return () => unsub();
+  }, []);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({behavior:"smooth"});
+  }, [messages]);
+
+  const sendMsg = async () => {
+    if (!text.trim()) return;
+    const msg = text.trim();
+    setText("");
+    await db.collection("messages").add({
+      author: name || "Mgeni",
+      text: msg,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+  };
+
+  if (!nameSet) return (
+    <div className="page" style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"80vh"}}>
+      <div style={{padding:24,maxWidth:320,width:"100%",textAlign:"center"}}>
+        <div style={{fontSize:60,marginBottom:16}}>💬</div>
+        <div className="section-title" style={{textAlign:"center"}}>Ingia kwenye Chat</div>
+        <p style={{color:"#666",fontSize:14,marginBottom:20}}>Weka jina lako ili uweze kuchati na wengine</p>
+        <input className="input" placeholder="Jina lako..." value={name} onChange={e => setName(e.target.value)} style={{marginBottom:14}} onKeyDown={e => e.key==="Enter" && name.trim() && setNameSet(true)} />
+        <button style={{width:"100%",background:"#FF6B00",border:"none",color:"#fff",borderRadius:12,padding:"14px",fontWeight:900,fontSize:15,cursor:"pointer",fontFamily:"Nunito,sans-serif"}} onClick={() => name.trim() && setNameSet(true)}>
+          🚀 Ingia
+        </button>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="page" style={{display:"flex",flexDirection:"column"}}>
+      <div className="header">
+        <div>
+          <div className="logo-name" style={{fontSize:20}}>LIVE CHAT 💬</div>
+          <div className="logo-sub">🟢 Mazungumzo ya moja kwa moja</div>
+        </div>
+        <div style={{background:"rgba(255,107,0,0.15)",border:"1px solid #FF6B00",borderRadius:20,padding:"4px 12px",fontSize:12,color:"#FF6B00",fontWeight:700}}>{name}</div>
+      </div>
+
+      <div className="chat-messages" style={{flex:1,overflowY:"auto"}}>
+        {loading ? (
+          <div className="loading"><div className="spinner" /></div>
+        ) : messages.length === 0 ? (
+          <div className="loading">
+            <div style={{fontSize:50}}>👋</div>
+            <p style={{color:"#555",marginTop:12}}>Hakuna ujumbe bado.</p>
+            <p style={{color:"#444",fontSize:13}}>Anza mazungumzo!</p>
+          </div>
+        ) : messages.map(msg => {
+          const isMe = msg.author === name;
+          return (
+            <div key={msg.id} style={{alignSelf:isMe?"flex-end":"flex-start",maxWidth:"75%"}}>
+              {!isMe && <div className="msg-name">{msg.author}</div>}
+              <div className={`msg-bubble ${isMe?"msg-mine":"msg-other"}`}>
+                {msg.text}
+                <div className="msg-time">{timeAgo(msg.createdAt)}</div>
+              </div>
+            </div>
+          );
+        })}
+        <div ref={bottomRef} />
+      </div>
+
+      <div className="chat-input-area">
+        <input className="input" style={{flex:1}} placeholder="Andika ujumbe..." value={text} onChange={e => setText(e.target.value)} onKeyDown={e => e.key==="Enter" && sendMsg()} />
+        <button className="send-btn" onClick={sendMsg}>➤</button>
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════
+// PROFILE PAGE
+// ══════════════════════════════════════════
+function ProfilePage({ userName, setUserName }) {
+  const [name, setName] = useState(userName || "");
+  const [saved, setSaved] = useState(false);
+
+  const save = () => {
+    setUserName(name);
+    localStorage.setItem("anifood_name", name);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  };
+
+  return (
+    <div className="page">
+      <div className="profile-header">
+        <div className="profile-avatar">{(userName||"?")[0].toUpperCase()}</div>
+        <div style={{fontFamily:"Bebas Neue,sans-serif",fontSize:24,letterSpacing:2}}>{userName || "Mgeni"}</div>
+        <div style={{color:"#666",fontSize:13,marginTop:4}}>Mwanachama wa ANIFOOD</div>
+      </div>
+
+      <div style={{padding:20}}>
+        <div className="section-title">⚙️ Mipangilio</div>
+        <div style={{marginBottom:14}}>
+          <label className="label">Jina Lako</label>
+          <input className="input" placeholder="Weka jina lako" value={name} onChange={e => setName(e.target.value)} style={{marginBottom:10}} />
+          <button style={{width:"100%",background:saved?"#1a6b1a":"#FF6B00",border:"none",color:"#fff",borderRadius:12,padding:"13px",fontWeight:900,fontSize:15,cursor:"pointer",fontFamily:"Nunito,sans-serif",transition:"background 0.3s"}} onClick={save}>
+            {saved ? "✅ Imehifadhiwa!" : "💾 Hifadhi Jina"}
+          </button>
+        </div>
+
+        <div style={{marginTop:24}}>
+          <div className="section-title">📱 Kuhusu App</div>
+          {[["🍽️ App","ANIFOOD v1.0"],["📍 Mahali","Nyamongo, Tanzania"],["🔥 Backend","Firebase Firestore"],["🌐 Hosting","Netlify"],["👩‍💻 Dev","Sophia Makala"]].map(([k,v]) => (
+            <div key={k} className="setting-row">
+              <span style={{color:"#aaa",fontSize:14}}>{k}</span>
+              <span style={{color:"#fff",fontWeight:700,fontSize:14}}>{v}</span>
+            </div>
+          ))}
+        </div>
+
+        <div style={{marginTop:24,padding:16,background:"#1a1a1a",borderRadius:14,border:"1px solid #222",textAlign:"center"}}>
+          <div style={{fontSize:30,marginBottom:8}}>🔥</div>
+          <div style={{fontFamily:"Bebas Neue,sans-serif",fontSize:20,color:"#FF6B00",letterSpacing:2}}>ANIFOOD</div>
+          <div style={{color:"#555",fontSize:12,marginTop:4}}>Chakula Bora • Nyamongo • Tanzania</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════
+// MAIN APP
+// ══════════════════════════════════════════
+function App() {
+  const [tab, setTab] = useState("order");
+  const [userName, setUserName] = useState(() => localStorage.getItem("anifood_name") || "");
+
+  const tabs = [
+    { id: "order", icon: "🍽️", label: "Agiza" },
+    { id: "community", icon: "🌍", label: "Jamii" },
+    { id: "chat", icon: "💬", label: "Chat" },
+    { id: "profile", icon: "👤", label: "Mimi" },
+  ];
+
+  return (
+    <div>
+      {tab === "order" && <OrderPage userName={userName} />}
+      {tab === "community" && <CommunityPage userName={userName} />}
+      {tab === "chat" && <ChatPage userName={userName} />}
+      {tab === "profile" && <ProfilePage userName={userName} setUserName={setUserName} />}
+      <nav className="nav-bar">
+        {tabs.map(t => (
+          <button key={t.id} className={`nav-btn ${tab===t.id?"active":""}`} onClick={() => setTab(t.id)}>
+            <span className="icon">{t.icon}</span>
+            {t.label}
+          </button>
+        ))}
+      </nav>
     </div>
   );
 }
